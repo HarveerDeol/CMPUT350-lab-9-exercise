@@ -3,7 +3,8 @@
 
 #include <iostream>
 #include <limits>
-
+#include <cmath>
+#include <algorithm>
 #include "camera.h"
 
 constexpr float INF = std::numeric_limits<float>::infinity();
@@ -37,6 +38,48 @@ struct DynamicCamera {
                 const sf::Vector2f& trackedPosWorld,      // world coords of player to track
                 const sf::Vector2f& trackedVelocityWorld  // world velocity of player to track
     ) {
+        float sign; 
+        if (trackedVelocityWorld.x == 0.0f){
+            sign = 0;
+        } else {
+        sign = (0.0f < trackedVelocityWorld.x) - (trackedVelocityWorld.x < 0.0f);
+        }
+        sf::Vector2f lookAheadVec = {lookAhead,0};
+        sf::Vector2f lookAheadVecPerc =  camera.windowPercentToWorldDist(lookAheadVec);
+        float targetOffsetWorld = lookAheadVecPerc.x*sign;
+        lookaheadState = lookaheadState + alpha *(targetOffsetWorld - lookaheadState);
+
+        camera.setCameraCenter(cameraUnadjustedCenter);
+        sf::Vector2f trackedPosWorldPerc = camera.worldToWindowPercent(trackedPosWorld);
+        float playerLoc = trackedPosWorldPerc.x; 
+
+        float deltaPercent = 0.f; 
+
+        if (deadZoneX.contains(playerLoc)) {
+        } else if (softZoneX.contains(playerLoc)) {
+            if (playerLoc < deadZoneX.min){
+                deltaPercent = (playerLoc - deadZoneX.min)*alpha;
+            } else{
+                deltaPercent = (playerLoc - deadZoneX.max)*alpha;
+            }
+            
+        } else {
+            if (playerLoc < softZoneX.min){
+                deltaPercent = (playerLoc - softZoneX.min);
+            } else{
+                deltaPercent = (playerLoc - softZoneX.max);
+            }
+        }
+
+        sf::Vector2f deltaPercentVec = {deltaPercent, 0};
+        sf::Vector2f deltaWorld = camera.windowPercentToWorldDist(deltaPercentVec);
+        cameraUnadjustedCenter = {cameraUnadjustedCenter.x + deltaWorld.x, cameraUnadjustedCenter.y};
+        sf::Vector2f newView = {cameraUnadjustedCenter.x + lookaheadState, cameraUnadjustedCenter.y};
+        camera.setCameraCenter(newView);
+
+
+
+
         // TODO: (HINTS/outline)
         // collect statistics on the player position and velocity in (normalized, if you like)
         // window coordinates. Compute lookAhead distance in world coords, adjusting for
